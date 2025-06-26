@@ -20,17 +20,16 @@ This platform leverages Databricks Delta Lake architecture and Delta Live Tables
 
 ---
 
-## 🧱 Platform Architecture
 
-```mermaid
 graph TD
   A[UI Upload] --> B[Azure Blob Storage]
   B --> C[Raw Table (Bronze Layer)]
   C --> D[DLT / Workflow]
-  D -->|QC Passed| E[Staging Table]
-  D -->|QC Failed| F[QC Failed Table]
+  D --> E[QC Passed → Staging Table]
+  D --> F[QC Failed → QC Failed Table]
   F --> G[User Review via UI]
-  G -->|Fix & Approve| E
-  E --> H[DLT Aggregation / Transformation]
-  H --> I[Curated Table (Gold Layer)]
-  I --> J[Power BI / Tableau / Reporting Tools]
+  G --> H[Fix & Approve]
+  H --> E
+  E --> I[DLT Aggregation / Transformation]
+  I --> J[Curated Table (Gold Layer)]
+  J --> K[Power BI / Tableau / Reporting Tools]
