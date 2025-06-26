@@ -1,70 +1,39 @@
 # 📊 Insurance Product Performance Analytics Platform
-Overview
-This platform provides a robust and scalable solution for analyzing insurance product and claims data. Built on Databricks with Delta Lake architecture, it enables seamless ingestion, quality validation, transformation, and visualization of insurance performance metrics.
+o
 
-🏗️ Architecture Workflow
-Data Ingestion
+# 📊 Insurance Product Performance Analytics Platform
 
-Input via UI (Excel upload)
+A scalable analytics solution built on Databricks to ingest, process, validate, and visualize insurance product and claims data for performance analysis and reporting.
 
-Stored in Azure Blob Storage
+---
 
-Raw Data Load
+## 🚀 Project Overview
 
-Loaded into Delta Lake (Bronze Layer)
+This platform leverages Databricks Delta Lake architecture and Delta Live Tables (DLT) to deliver a complete end-to-end data pipeline. It supports the ingestion of insurance premium and claims data, applies quality checks, performs transformations, and generates curated datasets for downstream analytics.
 
-Data Quality Checks
+---
 
-Implemented via Delta Live Tables (DLT) / Workflows
+## 📂 Repository Contents
 
-Failed vs. passed records routed accordingly
+| File/Directory                                | Description                                                   |
+|----------------------------------------------|---------------------------------------------------------------|
+| `Databricks Insurance Analytics Platform Overview.docx` | Workflow architecture and system design                      |
+| `Insurance Product Performance Analytics Platform Requirement.pdf` | Data specifications, rules, and derived metrics             |
+| `claims_Visualization.ipynb`                 | Jupyter notebook for claims data visualization               |
 
-QC Review
+---
 
-UI-enabled review and reprocessing of failed records
+## 🧱 Platform Architecture
 
-Transformations & Aggregation
-
-ETL via DLT to compute curated metrics (Gold Layer)
-
-Reporting Layer
-
-Curated data consumed by Power BI/Tableau dashboards
-
-📥 Source Data Formats
-Premium Data Fields
-policy, insured_name, broker_name, effective_date, etc.
-
-Key: policy + endorsement_number
-
-Claims Data Fields
-claim_number, policy, risk_state, amount, date, etc.
-
-Key: claim_number + date + amount + type + coverage
-
-✅ Data Quality Rules
-Premium Data:
-Fields like policy, effective_date, deductible, etc. must be valid and non-null.
-
-Claims Data:
-Fields like claim_number, date_of_loss, company, amount, etc. are validated similarly.
-
-Records failing these checks are routed to a “QC Failed” table for user review.
-
-🔄 Derived & Transformed Fields
-Premium:
-written_policy_premium
-
-exposure_unit_years
-
-earned_policy_premium
-
-price_per_exposure_unit
-
-unit_rank, unit_range
-
-Claims:
-incurred_loss
-
-incurred_loss_ratio
-
+```mermaid
+graph TD
+  A[UI Upload] --> B[Azure Blob Storage]
+  B --> C[Raw Table (Bronze Layer)]
+  C --> D[DLT / Workflow]
+  D -->|QC Passed| E[Staging Table]
+  D -->|QC Failed| F[QC Failed Table]
+  F --> G[User Review via UI]
+  G -->|Fix & Approve| E
+  E --> H[DLT Aggregation / Transformation]
+  H --> I[Curated Table (Gold Layer)]
+  I --> J[Power BI / Tableau / Reporting Tools]
