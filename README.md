@@ -1,7 +1,4 @@
 # 📊 Insurance Product Performance Analytics Platform
-o
-
-# 📊 Insurance Product Performance Analytics Platform
 
 A scalable analytics solution built on Databricks to ingest, process, validate, and visualize insurance product and claims data for performance analysis and reporting.
 
