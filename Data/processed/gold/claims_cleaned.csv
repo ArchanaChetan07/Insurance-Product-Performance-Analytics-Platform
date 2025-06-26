@@ -1,0 +1,17 @@
+COMPANY,ACCIDENT_STATE,TOTAL_CLAIMED_AMOUNT
+Aetna,CA,2681.0
+Aetna,FL,4162.0
+Aetna,NY,7341.0
+Aetna,TX,4484.0
+Blue Cross,CA,2586.0
+Blue Cross,FL,3241.0
+Blue Cross,NY,3662.0
+Blue Cross,TX,3111.0
+Kaiser,CA,2579.0
+Kaiser,FL,4265.0
+Kaiser,NY,2804.0
+Kaiser,TX,2612.0
+United,CA,3097.0
+United,FL,1439.0
+United,NY,5681.0
+United,TX,3811.0
