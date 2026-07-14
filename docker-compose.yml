@@ -1,0 +1,15 @@
+services:
+  app:
+    build: .
+    ports:
+      - "${STREAMLIT_PORT:-8501}:8501"
+    volumes:
+      - ./Data:/app/Data
+    environment:
+      PYTHONPATH: /app
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501/_stcore/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
