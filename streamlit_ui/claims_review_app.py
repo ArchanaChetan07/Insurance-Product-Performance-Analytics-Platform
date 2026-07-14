@@ -1,43 +1,39 @@
-import streamlit as st
-import pandas as pd
+"""QC Failed Claims Review — approve fixed rows into staging (repo-relative paths)."""
+
+from __future__ import annotations
+
 from pathlib import Path
 
-# Paths
-base_dir = Path("C:/Users/archa/Desktop/Databricks/Data/processed")
-failed_path = base_dir / "qc_failed"
-staging_path = base_dir / "staging"
+import pandas as pd
+import streamlit as st
 
-failed_file = failed_path / "claims_failed.csv"
-staging_file = staging_path / "claims_staging.csv"
+ROOT = Path(__file__).resolve().parents[1]
+BASE = ROOT / "Data" / "processed"
+FAILED_FILE = BASE / "qc_failed" / "claims_failed.csv"
+STAGING_FILE = BASE / "staging" / "claims_staging.csv"
 
-# Load QC failed data
-if not failed_file.exists():
-    st.error("❌ QC failed file not found.")
+st.set_page_config(page_title="QC Failed Claims Review", layout="wide")
+st.title("QC Failed Claims Review")
+st.caption("Review, fix, and approve failed claims into the staging (silver) layer")
+
+if not FAILED_FILE.exists():
+    st.error(f"QC failed file not found: `{FAILED_FILE}`")
     st.stop()
 
-df = pd.read_csv(failed_file)
-
-st.title("🚨 QC Failed Claims Review")
-st.caption("Review, fix and approve failed claims data")
-
-# Editable Data Table
+df = pd.read_csv(FAILED_FILE)
+st.write(f"Found **{len(df)}** QC-failed record(s).")
 edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True)
 
-# Approve Button
-if st.button("✅ Approve & Move to Staging"):
+if st.button("Approve & Move to Staging", type="primary"):
     try:
-        # Load current staging data
-        staging_df = pd.read_csv(staging_file)
-
-        # Append reviewed data
-        updated_df = pd.concat([staging_df, edited_df], ignore_index=True)
-
-        # Save updated staging file
-        updated_df.to_csv(staging_file, index=False)
-
-        # Clear failed file
-        failed_file.unlink()
-
-        st.success("✅ Approved claims moved to staging and failed claims cleared.")
+        STAGING_FILE.parent.mkdir(parents=True, exist_ok=True)
+        if STAGING_FILE.exists():
+            staging_df = pd.read_csv(STAGING_FILE)
+            updated_df = pd.concat([staging_df, edited_df], ignore_index=True)
+        else:
+            updated_df = edited_df
+        updated_df.to_csv(STAGING_FILE, index=False)
+        FAILED_FILE.unlink(missing_ok=True)
+        st.success("Approved claims moved to staging; QC failed file cleared.")
     except Exception as e:
         st.error(f"Error: {e}")
