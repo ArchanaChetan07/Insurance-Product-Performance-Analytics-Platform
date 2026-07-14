@@ -1,0 +1,34 @@
+{
+  "bronze": {
+    "raw_rows": 20511,
+    "bronze_rows": 18928,
+    "rejected_rows": 1583,
+    "reject_rate": 0.07717809955633563,
+    "amount_sum": 66511494.01
+  },
+  "qc": {
+    "bronze_rows": 18928,
+    "staging_rows": 11885,
+    "failed_rows": 7043,
+    "auto_pass_rate": 0.6279057480980558
+  },
+  "gold": {
+    "gold_trend_rows": 1726,
+    "gold_company_rows": 119,
+    "states": 74,
+    "months": 60,
+    "total_claims_amount": 126550784.42000002,
+    "claim_count_sum": 11885
+  },
+  "headline": {
+    "bronze_claims": 18928,
+    "raw_reject_rate_pct": 7.72,
+    "raw_rejected_rows": 1583,
+    "qc_auto_pass_rate_pct": 62.79,
+    "staging_rows": 11885,
+    "qc_failed_rows": 7043,
+    "gold_states": 74,
+    "gold_months": 60,
+    "gold_claim_count": 11885
+  }
+}
