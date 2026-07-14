@@ -1,138 +1,153 @@
 # Insurance Product Performance Analytics Platform
 
-### Medallion claims ELT — staging QC, gold aggregates, and Streamlit review over synthetic NTA data
+### Databricks-oriented claims ELT (raw→staging→gold) with QC-fail Streamlit review apps and synthetic NTA/MTC datasets.
 
-[![CI](https://github.com/ArchanaChetan07/Insurance-Product-Performance-Analytics-Platform/actions/workflows/ci.yml/badge.svg)](https://github.com/ArchanaChetan07/Insurance-Product-Performance-Analytics-Platform/actions/workflows/ci.yml)
-[![Python](https://img.shields.io/badge/Python-3.10-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/pytest-7%20tests-1f8a4c)](tests/test_insurance_product_perform.py)
-[![Streamlit](https://img.shields.io/badge/Streamlit-QC%20review-FF4B4B)](streamlit_ui/)
-[![License](https://img.shields.io/badge/license-see%20repo-2d3748)](#license)
-
-Insurance claims analytics pipeline with **bronze → staging → gold** layers: ingest synthetic NTA MTC claims (Excel), run QC splits for failed rows, aggregate monthly/state metrics, visualize product performance, and review QC failures in Streamlit before promoting records to staging.
+[![GitHub](https://img.shields.io/badge/repo-Insurance-Product-Performance-Analytics--181717?logo=github)](https://github.com/ArchanaChetan07/Insurance-Product-Performance-Analytics-Platform)
+[![Language](https://img.shields.io/badge/language-Jupyter%20Notebook-3572A5)](https://github.com/ArchanaChetan07/Insurance-Product-Performance-Analytics-Platform)
+[![License](https://img.shields.io/badge/license-See%20repository-yellow)](https://github.com/ArchanaChetan07/Insurance-Product-Performance-Analytics-Platform)
+[![CI](https://img.shields.io/badge/CI-GitHub%20Actions-2088FF?logo=githubactions&logoColor=white)](https://github.com/ArchanaChetan07/Insurance-Product-Performance-Analytics-Platform/actions)
 
 ---
 
-## Key Results
+## Overview
 
-| Metric | Value | Source |
-|---|---|---|
-| Notebooks | **4** (ELT, visualization, staging→gold, aggregate) | repo root |
-| NTA synthetic raw columns | **148** | `claims_Visulization.ipynb` output |
-| Cleaned claims rows | **18,928** | `Data/processed/claims_cleaned.csv` |
-| ELT demo bronze rows | **100** (4 insurers × 4 states) | `claims_elt_pipeline.ipynb` |
-| Staging rows (committed) | **101** | `Data/processed/staging/claims_staging.csv` |
-| QC failed rows (committed) | **1** | `Data/processed/qc_failed/claims_failed.csv` |
-| Gold aggregate rows | **16** (month × state) | `Data/processed/gold/claims_gold.csv` |
-| Streamlit QC apps | **2** | `streamlit_ui/` |
-| Unit tests | **7** | `tests/test_insurance_product_perform.py` |
+Insurance product analytics needs governed medallion pipelines and a human workflow to fix QC-failed claims before they re-enter staging/gold aggregates.
+
+Notebooks for ELT, staging-to-gold, aggregation, and visualization; processed parquet/csv layers committed; Streamlit QC review/push-to-staging UI; requirement/overview docs.
+
+Reproducible synthetic claims lakehouse layout with Streamlit operator UI (path currently hard-coded to a local Desktop folder).
+
+This repository is maintained as **production-minded portfolio work**: clear architecture, automated checks where present, and metrics that are **traceable to committed artifacts** (never invented).
 
 ---
 
 ## Architecture
 
+Raw Excel → ELT notebook → staging/QC-failed → Streamlit fix/approve → gold aggregates → visualization
+
 ```mermaid
-flowchart TB
-    XLS[NTA_MTC_Claims_Synthetic_Data.xlsx] --> BR[Bronze ingest notebooks]
-    BR --> QC{Essential-column QC}
-    QC -->|pass| ST[staging/claims_staging.csv]
-    QC -->|fail| FL[qc_failed/claims_failed.csv]
-    FL --> UI[Streamlit QC review apps]
-    UI --> ST
-    ST --> GL[gold/claims_gold.csv]
-    BR --> CL[claims_cleaned.csv 18,928 rows]
-    CL --> VIZ[claims_Visulization.ipynb charts]
-    GL --> AGG[04_aggregate_to_gold.ipynb]
+flowchart LR
+  R[Raw Excel] --> E[ELT notebooks]
+  E --> S[staging]
+  E --> Q[qc_failed]
+  Q --> UI[Streamlit review]
+  UI --> S
+  S --> G[gold aggregates]
+  G --> V[visualization]
 ```
 
-**How it works:** `claims_elt_pipeline.ipynb` loads claims, profiles missing values, splits rows with null essential fields into QC-failed vs staging CSV/Parquet, and charts state distributions. `03_staging_to_gold.ipynb` aggregates staging into monthly gold metrics. Streamlit apps let analysts edit failed rows and promote them to staging. `claims_Visulization.ipynb` processes the full 148-column NTA synthetic export for EDA and cleaning.
+```mermaid
+sequenceDiagram
+  participant U as User/Client
+  participant S as Service/Pipeline
+  participant E as Eval/Tools
+  U->>S: request / job
+  S->>E: execute
+  E-->>S: results
+  S-->>U: report / response
+```
 
 ---
 
-## Tech Stack
+## Results & repository facts
 
-| Layer | Choice |
+> Only values found in code, configs, tests, or generated reports are listed. Absence of a clinical/ML accuracy number means it was **not** published in-repo.
+
+| Metric | Value | Source |
+|---|---|---|
+| Tracked blobs on main | **24** | `git tree main` |
+| Notebooks | **4** | `git tree main` |
+| Tracked files | **24** | `git tree` |
+| Python modules | **3** | `git tree` |
+| Test-related paths | **1** | `git tree` |
+| CI workflows | **Yes** | `.github/workflows` |
+| Docker present | **No** | `repo root` |
+
+```mermaid
+%%{init: {'theme':'base'}}%%
+pie showData title Language composition (bytes)
+    "Jupyter Notebook" : 100
+    "Python" : 1
+```
+
+---
+
+## Key features
+
+- claims_elt_pipeline + staging/gold notebooks
+- QC failed partition + staging repair UI
+- Claims visualization notebook
+- Synthetic premiums/claims Excel sources
+- Requirement + overview documents
+
+---
+
+## Tech stack
+
+| Layer | Technology |
 |---|---|
-| Language | Python 3.10 |
-| Data | pandas, openpyxl (Excel), fuzzywuzzy |
-| Viz | matplotlib, seaborn |
-| ML (analytics helpers) | scikit-learn LinearRegression in tests |
-| UI | Streamlit (`st.data_editor` for QC fixes) |
-| CI | GitHub Actions + pytest + flake8 |
+| language | Python |
+| notebooks | Jupyter / Databricks-style ELT |
+| storage | CSV/Parquet medallion layers |
+| ui | Streamlit |
+| domain | NTA/MTC insurance synthetic data |
 
 ---
 
-## Features
+## Skills demonstrated
 
-- Medallion-style folders: `staging/`, `qc_failed/`, `gold/`
-- QC gate on essential columns with separate failed-row quarantine
-- CSV + Parquet exports from ELT notebook
-- Monthly gold table: `CLAIM_MONTH`, `ACCIDENT_STATE`, `TOTAL_CLAIMS`, `AVERAGE_CLAIM`, `CLAIM_COUNT`
-- Company/state aggregation notebook with bar charts
-- Streamlit workflows to fix and approve QC-failed claims
-- Prophet listed in requirements for time-series extension
+Jupyter Notebook · pandas · PySpark/Databricks notebooks · Streamlit · Parquet · CI/CD · testing · automation
+
+Keyword surface: **Python · Jupyter Notebook · machine-learning · CI/CD · testing · API · Docker · automation · data-science · software-engineering · system-design · observability · LLM · cloud**
 
 ---
 
-## Installation & Usage
+## Project structure
+
+```text
+Insurance-Product-Performance-Analytics-Platform/
+├── claims_elt_pipeline.ipynb
+├── 03_staging_to_gold.ipynb
+├── 04_aggregate_to_gold.ipynb
+├── claims_Visulization.ipynb
+├── Data/processed/{staging,gold,qc_failed}/
+└── streamlit_ui/
+```
+
+---
+
+## Installation & usage
 
 ```bash
 git clone https://github.com/ArchanaChetan07/Insurance-Product-Performance-Analytics-Platform.git
 cd Insurance-Product-Performance-Analytics-Platform
-python -m venv .venv
-# Windows: .venv\Scripts\activate
-source .venv/bin/activate
 pip install -r requirements.txt
-```
-
-```bash
-# Run ELT + QC split (update raw Excel path in notebook first)
-jupyter notebook claims_elt_pipeline.ipynb
-
-# Staging → gold aggregation
-jupyter notebook 03_staging_to_gold.ipynb
-
-# QC review UI (point base_dir to Data/processed in app)
-streamlit run streamlit_ui/Streamlit.py
-
-# Tests
-pytest tests/ -v
-```
-
-**Note:** notebooks reference local Databricks paths for the raw Excel file; update paths or place data under `Data/raw/` before running.
-
----
-
-## Project Structure
-
-```text
-Insurance-Product-Performance-Analytics-Platform/
-├── claims_elt_pipeline.ipynb        # bronze ingest + QC split
-├── claims_Visulization.ipynb        # 148-col NTA EDA + cleaning
-├── 03_staging_to_gold.ipynb         # staging → gold metrics
-├── 04_aggregate_to_gold.ipynb       # company/state aggregates
-├── streamlit_ui/
-│   ├── Streamlit.py                 # row-by-row QC fixer
-│   └── claims_review_app.py         # bulk approve to staging
-├── Data/processed/
-│   ├── staging/claims_staging.csv
-│   ├── qc_failed/claims_failed.csv
-│   ├── gold/claims_gold.csv
-│   └── claims_cleaned.csv
-├── tests/test_insurance_product_perform.py
-└── .github/workflows/ci.yml
+streamlit run streamlit_ui/claims_review_app.py
 ```
 
 ---
 
-## Future Improvements
+## How it works
 
-- Parameterize data paths via `.env` instead of hard-coded Databricks directories
-- Wire Streamlit apps to repo-relative `Data/processed/` paths by default
-- Add dbt or Airflow orchestration over notebook stages
-- Persist QC audit trail when rows move from failed → staging
+ELT notebooks land synthetic claims into staging/gold parquet/csv; failed QC rows can be inspected and pushed back via Streamlit before aggregation/visualization notebooks consume gold tables.
+
+---
+
+## Future improvements
+
+- Remove hard-coded Windows absolute paths in Streamlit.py
+- Add data-quality metric cards from gold tables
+- Rewrite template README with medallion diagram
 
 ---
 
 ## License
 
-See repository license file if present.
+See repository.
+
+---
+
+<p align="center">
+  <b>Insurance Product Performance Analytics Platform</b><br/>
+  <a href="https://github.com/ArchanaChetan07/Insurance-Product-Performance-Analytics-Platform">github.com/ArchanaChetan07/Insurance-Product-Performance-Analytics-Platform</a>
+</p>
