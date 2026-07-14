@@ -1,253 +1,89 @@
-# Insurance Product Performance Analytics Platform
-
-### Medallion claims ELT (Bronze → Silver/Staging → Gold) + Streamlit QC review for synthetic NTA/MTC portfolios
-
 [![CI](https://github.com/ArchanaChetan07/Insurance-Product-Performance-Analytics-Platform/actions/workflows/ci.yml/badge.svg)](https://github.com/ArchanaChetan07/Insurance-Product-Performance-Analytics-Platform/actions/workflows/ci.yml)
-[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![pandas](https://img.shields.io/badge/pandas-ELT%20%2F%20QC-150458?logo=pandas&logoColor=white)](claims_elt_pipeline.ipynb)
-[![Streamlit](https://img.shields.io/badge/UI-Streamlit%20QC%20review-FF4B4B?logo=streamlit&logoColor=white)](streamlit_ui/)
-[![Parquet](https://img.shields.io/badge/storage-CSV%20%2B%20Parquet-1D6F42)](Data/processed/)
-[![Tests](https://img.shields.io/badge/pytest-7%20tests-brightgreen?logo=pytest&logoColor=white)](tests/test_insurance_product_perform.py)
-[![Domain](https://img.shields.io/badge/domain-Insurance%20NTA%2FMTC-0F766E)](#)
 
-> End-to-end **insurance claims analytics lakehouse sample**: ingest synthetic NTA/MTC claims, enforce null-based **QC gates**, land clean rows in **staging (silver)**, repair failures via **Streamlit**, then aggregate to **gold** for state/month product performance and visualization notebooks.
+Medallion ELT pipeline for synthetic insurance claims — **pandas + Parquet**, with **Streamlit HITL QC review** and **gold-layer KPI reporting**.
+
+**18,928 bronze claims · 62.79% QC auto-pass (11,885 staged / 7,043 HITL) · 7.72% raw reject (1,583) · 14/14 tests · CI: green**
+
+`docker compose up --build` → open Streamlit at `http://localhost:8501` (or `STREAMLIT_PORT=8502`).
+
+[![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)](pyproject.toml)
+[![pandas](https://img.shields.io/badge/pandas-medallion%20ELT-150458?logo=pandas&logoColor=white)](insurance_pipeline/)
+[![Streamlit](https://img.shields.io/badge/HITL-Streamlit%20QC-FF4B4B?logo=streamlit&logoColor=white)](streamlit_ui/claims_review_app.py)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](docker-compose.yml)
+[![pytest](https://img.shields.io/badge/pytest-14%2F14-0A9EDC?logo=pytest&logoColor=white)](tests/)
 
 **Repo:** [github.com/ArchanaChetan07/Insurance-Product-Performance-Analytics-Platform](https://github.com/ArchanaChetan07/Insurance-Product-Performance-Analytics-Platform)
 
 ---
 
-## Verified data & warehouse facts
+## Overview
 
-Counts below are read directly from committed artifacts under `Data/processed/` — **not invented**.
+End-to-end **insurance claims lakehouse sample** for synthetic NTA/MTC portfolios: ingest Excel → clean bronze → null/amount **QC gates** → **staging (silver)** vs **qc_failed (HITL)** → aggregate **gold** KPIs by state/month. Source of truth is `python -m insurance_pipeline.run` (not hard-coded notebook paths).
 
-| Layer / artifact | Rows | Columns (key) | Path |
-|---|---:|---|---|
-| Cleaned claims (wide) | **18,928** | 15 — `CLAIM_NUMBER`, `POLICY`, `AMOUNT`, `COMPANY`, `ACCIDENT_STATE`, `DAYS_TO_NOTICE`, `COMPANY_NORMALIZED`, … | `Data/processed/claims_cleaned.csv` (+ parquet) |
-| Staging / silver snapshot | **101** | 6 — `DATE`, `AMOUNT`, `COMPANY`, `ACCIDENT_STATE`, `CLAIM_ID`, `ERROR_REASON` | `Data/processed/staging/claims_staging.*` |
-| QC failed queue | **1** | `CLAIM_ID`, `ERROR_REASON` | `Data/processed/qc_failed/claims_failed.*` |
-| Gold trends (month × state) | **16** | `CLAIM_MONTH`, `ACCIDENT_STATE`, `TOTAL_CLAIMS`, `AVERAGE_CLAIM`, `CLAIM_COUNT` | `Data/processed/gold/claims_gold.*` |
-| Gold by company × state | **16** | `COMPANY`, `ACCIDENT_STATE`, `TOTAL_CLAIMED_AMOUNT` | `Data/processed/gold/claims_cleaned.csv` |
-| Gold trend states covered | **CA · FL · NY · TX** (4 months each) | — | `claims_gold.csv` |
-| Σ `TOTAL_CLAIMS` in gold trends | **57,556** | — | sum of gold table |
-| Mean of gold `AVERAGE_CLAIM` cells | **≈ 598.54** | — | gold table |
-| Notebooks | **4** | ELT · staging→gold · aggregate · visualization | repo root |
-| Tracked files on `main` | **24** | — | git tree |
-| Unit tests | **7** | data hygiene + simple regression smoke | `tests/` |
-| Operator UI | **2** Streamlit apps | QC review / push-to-staging | `streamlit_ui/` |
-
-```mermaid
-%%{init: {'theme':'base', 'themeVariables': { 'pie1':'#0F766E','pie2':'#1D4ED8','pie3':'#B45309','pie4':'#64748B'}}}%%
-pie showData title Committed row volume by layer
-    "Cleaned claims (18,928)" : 18928
-    "Staging (101)" : 101
-    "Gold trends (16)" : 16
-    "QC failed (1)" : 1
-```
-
-```mermaid
-xychart-beta
-    title Gold TOTAL_CLAIMS by state (summed over months in claims_gold.csv)
-    x-axis [CA, FL, NY, TX]
-    y-axis "TOTAL_CLAIMS" 0 --> 20000
-    bar [10943, 13107, 19488, 14018]
-```
-
-> CA = 2167+1098+5811+1867 · FL = 2505+5966+3774+862 · NY = 6765+4238+6028+2457 · TX = 5253+4417+2485+1863
+Verified this session via pipeline run → [`Data/processed/pipeline_metrics.json`](Data/processed/pipeline_metrics.json).
 
 ---
 
-## Problem → solution
-
-Insurance product performance work needs more than charts: it needs a **governed medallion path** and a **human-in-the-loop** for QC failures before aggregates are trusted.
-
-This platform demonstrates:
-
-1. **Ingest** synthetic NTA/MTC claims Excel → cleaned bronze/wide fact  
-2. **QC gate** on essential columns → split **staging** vs **qc_failed**  
-3. **Operator repair** in Streamlit → push fixed rows back to staging  
-4. **Gold aggregates** (month × state, company × state) for product KPIs  
-5. **Visualization notebooks** for trends and company performance  
-
----
-
-## Architecture (medallion + HITL)
+## Architecture
 
 ```mermaid
-flowchart TB
-    subgraph Sources
-        XLS["NTA_MTC_Claims_Synthetic_Data.xlsx"]
-        PREM["NTA_MTC_Premium_Synthetic_Data.xlsx"]
-        DOCS["Requirement PDF + Databricks overview DOCX"]
-    end
-
-    subgraph Bronze["Bronze / cleaned"]
-        ELT["claims_elt_pipeline.ipynb"]
-        CLEAN["claims_cleaned.csv / .parquet<br/>18,928 rows × 15 cols"]
-    end
-
-    subgraph Silver["Silver + QC"]
-        STAGE["staging/claims_staging.*"]
-        FAIL["qc_failed/claims_failed.*"]
-        UI["streamlit_ui<br/>review · edit · approve"]
-    end
-
-    subgraph Gold["Gold analytics"]
-        S2G["03_staging_to_gold.ipynb"]
-        AGG["04_aggregate_to_gold.ipynb"]
-        GOLD1["claims_gold.csv — month × state KPIs"]
-        GOLD2["claims_cleaned.csv — company × state totals"]
-        VIZ["claims_Visulization.ipynb"]
-        PNG["claims_trends_by_state.png"]
-    end
-
-    XLS --> ELT --> CLEAN
-    CLEAN --> STAGE & FAIL
-    FAIL --> UI --> STAGE
-    STAGE --> S2G --> AGG --> GOLD1 & GOLD2 --> VIZ --> PNG
-    PREM -.-> ELT
-    DOCS -.-> ELT
+flowchart LR
+  XLS["Data/raw Excel<br/>20,511 rows"] --> BRONZE["Bronze claims_cleaned<br/>18,928"]
+  BRONZE --> QC["QC gate"]
+  QC -->|auto-pass 62.79%| STG["Staging 11,885"]
+  QC -->|fail 7,043| HITL["qc_failed → Streamlit"]
+  HITL -->|approve| STG
+  STG --> GOLD["Gold trends / company×state"]
 ```
 
-### Operator control loop
+| Layer | What runs | Output |
+|---|---|---|
+| Raw → Bronze | `insurance_pipeline.bronze` | Drop null `CLAIM_NUMBER`/`POLICY`/`AMOUNT`/`DATE` → **18,928** |
+| Bronze → Silver | `insurance_pipeline.qc` | Positive-amount auto-pass → staging; else HITL queue |
+| Silver → Gold | `insurance_pipeline.gold` | Month×state trends + company×state totals |
+| Entry point | `python -m insurance_pipeline.run` | Also writes `pipeline_metrics.json` |
+| Operator UI | `streamlit_ui/claims_review_app.py` | Review/edit/approve failed rows into staging |
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant N as ELT notebook
-    participant S as staging/
-    participant Q as qc_failed/
-    participant U as Streamlit QC UI
-    participant G as gold aggregates
-
-    N->>N: Load Excel · clean · feature helpers
-    N->>N: Null QC on essential columns
-    N->>S: Write qc_passed → staging CSV/Parquet
-    N->>Q: Write qc_failed queue
-    U->>Q: Load failures
-    U->>U: Edit / approve
-    U->>S: Append fixed rows
-    U->>Q: Clear / remove approved
-    G->>S: Consume staging
-    G->>G: Month×state · company×state gold tables
-```
-
-### Data model (cleaned claims)
-
-```mermaid
-erDiagram
-    CLAIM {
-        string CLAIM_NUMBER
-        string POLICY
-        string RISK_STATE
-        date DATE_OF_LOSS
-        date NOTICE_DATE
-        float AMOUNT
-        string COMPANY
-        string TYPE
-        string COVERAGE
-        string ACCIDENT_STATE
-        string MONTH_YEAR
-        int DAYS_TO_NOTICE
-        string COMPANY_NORMALIZED
-    }
-    GOLD_TREND {
-        string CLAIM_MONTH
-        string ACCIDENT_STATE
-        float TOTAL_CLAIMS
-        float AVERAGE_CLAIM
-        int CLAIM_COUNT
-    }
-    CLAIM ||--o{ GOLD_TREND : aggregates_to
-```
+Exploration notebooks under repo root remain for ADS coursework context; **the package is the reproducible path**.
 
 ---
 
-## Notebook pipeline
+## Data quality / HITL workflow
 
-| Notebook | Role |
-|---|---|
-| `claims_elt_pipeline.ipynb` | Raw Excel → clean → QC → **staging** + **qc_failed** (CSV & Parquet) |
-| `03_staging_to_gold.ipynb` | Promote staging into curated gold inputs |
-| `04_aggregate_to_gold.ipynb` | Build KPI aggregates (month/state, company/state) |
-| `claims_Visulization.ipynb` | Charts / trends (incl. committed `claims_trends_by_state.png`) |
-
-QC logic (from ELT notebook): essential columns must be non-null; any null → `qc_failed`, else `qc_passed` → staging.
+1. **Raw reject (7.72%)**: 1,583 of 20,511 Sheet1 rows have non-numeric/null `AMOUNT` after parse — never enter bronze.  
+2. **QC auto-pass (62.79%)**: of 18,928 bronze rows, **11,885** have `AMOUNT > 0` and required fields → staging.  
+3. **HITL queue (7,043)**: non-positive amounts flagged `Invalid Amount` in `Data/processed/qc_failed/` for Streamlit repair.  
+4. Operator edits + **Approve & Move to Staging** appends into silver and clears the failed file.
 
 ---
 
-## Streamlit QC apps
+## Gold KPIs (verified this session)
 
-| App | Purpose |
-|---|---|
-| `streamlit_ui/claims_review_app.py` | Bulk data-editor + approve-all to staging |
-| `streamlit_ui/Streamlit.py` | Row-picker edit + push single record |
+Gold is rebuilt from the **auto-pass staging set** (not the old 101-row demo sample).
 
-Paths resolve **relative to the repo** (`Data/processed/...`) so clones work without a hard-coded Desktop path.
+| Signal | Value |
+|---|---:|
+| Gold trend rows (month × state) | **1,726** |
+| Months × states coverage | **60 months · 74 states** |
+| Staged claim count in gold | **11,885** |
+| Σ staged `TOTAL_CLAIMS` (amount) | **≈ $126.6M** |
 
-```bash
-streamlit run streamlit_ui/claims_review_app.py
-# or
-streamlit run streamlit_ui/Streamlit.py
-```
+Top states by Σ `TOTAL_CLAIMS` (gold):
 
----
-
-## Gold KPI snapshot (committed)
-
-From `Data/processed/gold/claims_gold.csv` (Jan–Apr 2023 × CA/FL/NY/TX):
-
-| CLAIM_MONTH | Example cells |
-|---|---|
-| 2023-01 | NY TOTAL_CLAIMS **6,765** (13 claims) · TX **5,253** (9) · FL **2,505** (4) · CA **2,167** (5) |
-| 2023-02 | FL **5,966** (10) · TX **4,417** (9) · NY **4,238** (7) · CA **1,098** (2) |
-| 2023-03 | NY **6,028** (11) · CA **5,811** (8) · FL **3,774** (8) · TX **2,485** (4) |
-| 2023-04 | NY **2,457** (3) · CA **1,867** (3) · TX **1,863** (2) · FL **862** (2) |
-
-```mermaid
-xychart-beta
-    title CLAIM_COUNT by month (summed across CA/FL/NY/TX)
-    x-axis [2023-01, 2023-02, 2023-03, 2023-04]
-    y-axis "Claims" 0 --> 40
-    bar [31, 28, 31, 10]
-```
+| State | Σ TOTAL_CLAIMS |
+|---|---:|
+| TX | 15,786,816 |
+| CA | 13,978,242 |
+| PA | 5,454,978 |
+| IL | 5,024,674 |
+| AZ | 4,627,764 |
+| NM | 4,621,700 |
+| IN | 4,443,746 |
+| FL | 4,005,753 |
 
 ---
 
-## Repository layout
-
-```text
-Insurance-Product-Performance-Analytics-Platform/   ← 24 tracked files
-├── claims_elt_pipeline.ipynb
-├── 03_staging_to_gold.ipynb
-├── 04_aggregate_to_gold.ipynb
-├── claims_Visulization.ipynb
-├── Data/
-│   ├── raw/NTA_MTC_Claims_Synthetic_Data.xlsx
-│   └── processed/
-│       ├── claims_cleaned.csv|.parquet
-│       ├── staging/
-│       ├── qc_failed/
-│       └── gold/
-├── streamlit_ui/
-│   ├── claims_review_app.py
-│   └── Streamlit.py
-├── tests/test_insurance_product_perform.py
-├── requirements.txt
-├── *.pdf / *.docx requirement & overview docs
-└── .github/workflows/ci.yml
-```
-
-```mermaid
-%%{init: {'theme':'base'}}%%
-pie showData title Tracked tree emphasis
-    "Processed data artifacts" : 12
-    "Notebooks" : 4
-    "Streamlit + tests + CI + docs" : 8
-```
-
----
-
-## Quick start
+## How to Run
 
 ```bash
 git clone https://github.com/ArchanaChetan07/Insurance-Product-Performance-Analytics-Platform.git
@@ -256,52 +92,53 @@ cd Insurance-Product-Performance-Analytics-Platform
 python -m venv .venv
 # Windows: .\.venv\Scripts\Activate.ps1
 source .venv/bin/activate
-
 pip install -r requirements.txt
-pytest tests/ -q
+pip install -e .
 
-# QC review UI (uses Data/processed under this repo)
+python -m insurance_pipeline.run
 streamlit run streamlit_ui/claims_review_app.py
-
-# Explore pipelines
-jupyter notebook claims_elt_pipeline.ipynb
 ```
 
-> Notebooks may still reference legacy absolute Desktop paths from the original Databricks workspace run. Committed `Data/processed/` outputs are the portable lakehouse snapshot; prefer those paths or update notebook cells to `Path("Data/...")` when re-running locally.
+Docker (recommended):
+
+```bash
+docker compose up --build
+# open http://localhost:8501
+# STREAMLIT_PORT=8502 docker compose up --build   # if 8501 is busy
+```
+
+**Data for CI/repro:** the full synthetic workbook is committed at `Data/raw/NTA_MTC_Claims_Synthetic_Data.xlsx` (not generated at runtime).
 
 ---
 
-## Skills surface
+## Tests
 
-`Python` · `pandas` · `NumPy` · `medallion architecture` · `Bronze / Silver / Gold` · `ELT` · `data quality / QC gates` · `Parquet` · `CSV lakehouse` · `Streamlit` · `human-in-the-loop data repair` · `insurance analytics` · `NTA / MTC synthetic claims` · `product performance KPIs` · `matplotlib` / `seaborn` · `openpyxl` · `pytest` · `GitHub Actions` · `Databricks-style notebook workflows`
+```bash
+pytest tests/ -v --tb=short
+```
 
----
+Verified this session: **14/14 passed** (7 legacy analytics smokes + 7 medallion/pipeline tests against the real workbook).
 
-## Design notes
-
-1. **QC before gold** — failed rows never silently pollute product aggregates.  
-2. **Operator HITL** — Streamlit is part of the warehouse control plane, not a side demo.  
-3. **Dual format** — staging/gold land as **CSV + Parquet** for notebook and engine portability.  
-4. **Honest metrics** — row counts and gold sums are from committed files; synthetic domain data only.
+CI runs flake8, `python -m insurance_pipeline.run`, pytest, and a Docker image build on every push/PR to `main`.
 
 ---
 
-## Roadmap
+## Tech Stack
 
-- Parameterize remaining notebook absolute paths to repo-relative `Data/`  
-- Publish DQ metric cards (pass rate, fail reasons) as auto-generated markdown from staging/gold  
-- Optional Spark/Databricks job YAML wrapping the same medallion stages  
-
----
-
-## Author
-
-**Archana Chetan** · [@ArchanaChetan07](https://github.com/ArchanaChetan07)
-
-Built to demonstrate **insurance data platform skills**: medallion ELT, QC partitioning, operator repair UX, and gold KPI modeling on synthetic NTA/MTC claims.
+| Layer | Technology |
+|---|---|
+| Package | `insurance_pipeline/` (`bronze`, `qc`, `gold`, `run`) |
+| Data | pandas · Parquet · openpyxl |
+| HITL UI | Streamlit |
+| Containers | Dockerfile · Docker Compose |
+| CI | GitHub Actions (real pytest — no swallowed exits) |
 
 ---
 
 ## License
 
-See repository license if present. Supporting docs: requirement PDF + Databricks overview DOCX in repo root.
+See repository. Requirement PDF and Databricks overview DOCX are included for coursework context.
+
+## Author
+
+**Archana Chetan** · [@ArchanaChetan07](https://github.com/ArchanaChetan07)
